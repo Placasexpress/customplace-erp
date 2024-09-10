@@ -1,0 +1,277 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                       Int               @id @default(autoincrement())
+  email                    String            @unique
+  password                 String
+  resetPasswordToken       String?
+  resetPasswordTokenExpiry DateTime?
+  profile                  Profile?
+  companies                Company[]
+  UserPermissions          UserPermissions[]
+}
+
+model Profile {
+  id            Int          @id @default(autoincrement())
+  name          String       @unique
+  document      String       @unique
+  document_type DocumentType
+  image_url     String?
+  user          User?        @relation(fields: [user_id], references: [id])
+  user_id       Int?         @unique
+  address       Address[]
+  newsletter    Boolean      @default(false)
+  phone_number  String
+}
+
+model Address {
+  id           Int         @id @default(autoincrement())
+  type         AddressType
+  phone_number String
+  profile      Profile     @relation(fields: [profile_id], references: [id])
+  profile_id   Int
+  street       String
+  number       Int
+  zip_code     String
+  district     String
+  city         String
+
+  marketplaceProfile     MarketplaceProfile? @relation(fields: [marketplace_profile_id], references: [id])
+  marketplace_profile_id Int?                @unique
+}
+
+model Permission {
+  id              Int               @id @default(autoincrement())
+  name            String            @unique
+  category        String
+  UserPermissions UserPermissions[]
+}
+
+model UserPermissions {
+  userId       Int
+  permissionId Int
+
+  user       User       @relation(fields: [userId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([userId, permissionId])
+}
+
+model Company {
+  id                   Int                @id @default(autoincrement())
+  type                 String
+  marketplaceProfile   MarketplaceProfile @relation(fields: [marketplaceProfileId], references: [id])
+  marketplaceProfileId Int                @unique
+  user                 User               @relation(fields: [userId], references: [id])
+  userId               Int
+
+  steps   Step[]
+  clients Client[]
+}
+
+model MarketplaceProfile {
+  id        Int      @id @default(autoincrement())
+  name      String
+  addressId Int?     @unique
+  address   Address?
+  company   Company?
+}
+
+model Category {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  products Product[]
+}
+
+model Product {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String
+  created_at  DateTime @default(now())
+  updated_at  DateTime @default(now())
+  categoryId  Int
+
+  category           Category                   @relation(fields: [categoryId], references: [id])
+  salesMargins       SalesMargin[]
+  detailDescriptions ProductDetailDescription[]
+  steps              ProductStep[]
+  orders             Order[]
+}
+
+model ProductStep {
+  productId Int
+  stepId    Int
+  order     Int
+
+  product Product @relation(fields: [productId], references: [id])
+  step    Step    @relation(fields: [stepId], references: [id])
+
+  @@id([productId, stepId])
+}
+
+model SalesMargin {
+  id            Int @id @default(autoincrement())
+  qtdFrom       Int
+  qtyTo         Int
+  marginPercent Int
+
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+model DetailDescription {
+  id          Int    @id @default(autoincrement())
+  description String
+  price_cost  Float
+
+  productDetail   ProductDetail?
+  productDetailId Int?                       @unique
+  products        ProductDetailDescription[]
+  orderProductDescriptions OrderProductDescription[]
+}
+
+model ProductDetailDescription {
+  productId           Int
+  detailDescriptionId Int
+
+  product           Product           @relation(fields: [productId], references: [id])
+  detailDescription DetailDescription @relation(fields: [detailDescriptionId], references: [id])
+
+  @@id([productId, detailDescriptionId])
+}
+
+model ProductDetail {
+  id     Int    @id @default(autoincrement())
+  detail String
+
+  detailDescriptionId Int               @unique
+  detailDescription   DetailDescription @relation(fields: [detailDescriptionId], references: [id])
+}
+
+model Client {
+  id            Int     @id @default(autoincrement())
+  name          String
+  icms          Boolean @default(false)
+  document      String
+  identity_card String
+  companyId     Int
+
+  company   Company         @relation(fields: [companyId], references: [id])
+  addresses ClientAddress[]
+  contacts  ClientContact[]
+  orders    Order[]
+}
+
+model ClientAddress {
+  id           Int         @id @default(autoincrement())
+  type         AddressType
+  zip_code     Int
+  number       Int
+  complement   String
+  neighborhood String
+  state        String
+  city         String
+
+  clientId Int
+  client   Client @relation(fields: [clientId], references: [id])
+}
+
+model ClientContact {
+  id    Int               @id @default(autoincrement())
+  type  ClientContactType
+  email String
+  phone String
+
+  clientId Int
+  client   Client @relation(fields: [clientId], references: [id])
+}
+
+model Step {
+  id        Int    @id @default(autoincrement())
+  name      String
+  order     Int
+  companyId Int
+
+  company  Company       @relation(fields: [companyId], references: [id])
+  products ProductStep[]
+  orders   Order[]
+}
+
+model Order {
+  id          Int      @id @default(autoincrement())
+  orderNumber String   @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  clientId    Int
+  productId   Int?
+  stepId      Int?
+  status      String
+  quantity    Int
+  price       Int
+  payment_option  PaymentOption
+
+  client  Client   @relation(fields: [clientId], references: [id])
+  product Product? @relation(fields: [productId], references: [id])
+  step    Step?    @relation(fields: [stepId], references: [id])
+  Invoice Invoice?
+
+  orderProductDescriptions OrderProductDescription[]
+
+  @@index([productId])
+  @@index([stepId])
+}
+
+model OrderProductDescription {
+  id                Int      @id @default(autoincrement())
+  orderId           Int
+  detailDescriptionId Int
+
+  order             Order    @relation(fields: [orderId], references: [id])
+  detailDescription DetailDescription @relation(fields: [detailDescriptionId], references: [id])
+
+  @@unique([orderId, detailDescriptionId])
+}
+
+
+model Invoice {
+  id         Int      @id @default(autoincrement())
+  order      Order    @relation(fields: [orderId], references: [id])
+  orderId    Int      @unique
+  iuguId     String   @unique
+  status     String
+  dueDate    DateTime
+  totalCents Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+enum ClientContactType {
+  FINANCEIRO
+  COMPRAS
+}
+
+enum AddressType {
+  EMPRESA
+  CASA
+  ENVIO
+  CONTATO
+}
+
+enum DocumentType {
+  CPF
+  CNPJ
+}
+
+enum PaymentOption {
+  ALL
+  CREDIT_CARD
+  BANK_SLIP
+  PIX
+}
